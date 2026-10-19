@@ -168,9 +168,10 @@ def logout():
     return RedirectResponse(url="/login")
 
 
-# --- AUTHENTICATION & OTP ENDPOINTS ---
+# --- AUTHENTICATION & OTP ENDPOINTS (Dual Slash Support) ---
 
 @app.post("/api/auth/register")
+@app.post("/api/auth/register/")
 def register_user(user: UserRegister, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == user.email).first()
     reg_otp = str(random.randint(100000, 999999))
@@ -202,6 +203,7 @@ def register_user(user: UserRegister, db: Session = Depends(get_db)):
     return {"status": "success", "requires_otp": True, "message": f"Verification code generated for {user.email}!"}
 
 @app.post("/api/auth/verify-register-otp")
+@app.post("/api/auth/verify-register-otp/")
 def verify_register_otp(req: VerifyRegisterOTP, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email).first()
     if not user or user.otp_code != req.otp:
@@ -213,6 +215,7 @@ def verify_register_otp(req: VerifyRegisterOTP, db: Session = Depends(get_db)):
     return {"status": "success", "message": "Account verified successfully! You can now sign in."}
 
 @app.post("/api/auth/login")
+@app.post("/api/auth/login/")
 def authenticate_user(credentials: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user or user.password != credentials.password:
@@ -221,7 +224,6 @@ def authenticate_user(credentials: LoginRequest, db: Session = Depends(get_db)):
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="Please verify your email address first.")
 
-    # HARDCODED DEMO OTP: Use 123456 for the admin account, otherwise generate a random one
     if credentials.email == "admin@stocksense.com":
         login_otp = "123456"
     else:
@@ -234,6 +236,7 @@ def authenticate_user(credentials: LoginRequest, db: Session = Depends(get_db)):
     return {"status": "success", "requires_otp": True, "message": f"Login OTP generated for {credentials.email}!"}
 
 @app.post("/api/auth/verify-login-otp")
+@app.post("/api/auth/verify-login-otp/")
 def verify_login_otp(req: VerifyLoginOTP, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email).first()
     if not user or user.otp_code != req.otp:
@@ -244,6 +247,7 @@ def verify_login_otp(req: VerifyLoginOTP, db: Session = Depends(get_db)):
     return {"status": "success", "message": "Login successful", "user_id": user.id}
 
 @app.post("/api/auth/request-otp")
+@app.post("/api/auth/request-otp/")
 def request_otp(req: OTPRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email).first()
     if not user:
@@ -257,6 +261,7 @@ def request_otp(req: OTPRequest, db: Session = Depends(get_db)):
     return {"status": "success", "message": f"Reset OTP generated for {req.email}!"}
 
 @app.post("/api/auth/reset-password")
+@app.post("/api/auth/reset-password/")
 def reset_password(req: OTPVerify, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email).first()
     if not user:
@@ -271,16 +276,19 @@ def reset_password(req: OTPVerify, db: Session = Depends(get_db)):
     raise HTTPException(status_code=400, detail="Invalid or expired OTP code.")
 
 
-# --- ISOLATED INVENTORY API ENDPOINTS ---
+# --- ISOLATED INVENTORY API ENDPOINTS (Dual Slash Support) ---
 
+@app.get("/locations")
 @app.get("/locations/")
 def get_locations(db: Session = Depends(get_db)):
     return db.query(Location).all()
 
+@app.get("/products")
 @app.get("/products/")
 def get_products(user_id: int, db: Session = Depends(get_db)):
     return db.query(Product).filter(Product.user_id == user_id).all()
 
+@app.post("/products")
 @app.post("/products/")
 def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     product_data = product.model_dump(exclude={"initial_stock"})
@@ -290,6 +298,7 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     db.refresh(db_product)
     return db_product
 
+@app.post("/inventory/move")
 @app.post("/inventory/move/")
 def process_stock_movement(movement: MovementCreate, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == movement.product_id, Product.user_id == movement.user_id).first()
@@ -322,10 +331,12 @@ def process_stock_movement(movement: MovementCreate, db: Session = Depends(get_d
     
     return {"status": "Success", "product": product.name, "new_total_stock": product.total_stock}
 
+@app.get("/inventory/ledger")
 @app.get("/inventory/ledger/")
 def get_ledger(user_id: int, db: Session = Depends(get_db)):
     return db.query(StockMovement).filter(StockMovement.user_id == user_id).order_by(StockMovement.id.desc()).all()
 
+@app.get("/dashboard")
 @app.get("/dashboard/")
 def get_dashboard(user_id: int, db: Session = Depends(get_db)):
     total_products = db.query(Product).filter(Product.user_id == user_id).count()
