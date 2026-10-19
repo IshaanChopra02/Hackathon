@@ -146,7 +146,7 @@ def root_redirect():
 @app.get("/login", response_class=HTMLResponse)
 def serve_login():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    login_path = os.path.join(base_dir, "login.html")
+    login_path = os.path.join(base_dir, "index.html")
     try:
         with open(login_path, "r", encoding="utf-8") as f:
             return f.read()
