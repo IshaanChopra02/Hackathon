@@ -504,6 +504,23 @@
             setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 3500);
         }
 
+        // --- SAFE FETCH HELPER TO AVOID UNEXPECTED TOKEN '<' CRASHES ---
+        async function safeFetch(url, options) {
+            const res = await fetch(url, options);
+            const contentType = res.headers.get("content-type");
+            let data;
+            if (contentType && contentType.includes("application/json")) {
+                data = await res.json();
+            } else {
+                const text = await res.text();
+                throw new Error(text.includes("<!DOCTYPE html>") ? "Server endpoint error (HTML returned instead of JSON)" : text);
+            }
+            if (!res.ok) {
+                throw new Error(data.detail || data.message || "Request failed");
+            }
+            return data;
+        }
+
         // --- VIEW NAVIGATION VARIABLES ---
         const viewLogin = document.getElementById('section-login');
         const viewLoginOtp = document.getElementById('section-login-otp');
@@ -533,16 +550,13 @@
             e.preventDefault();
             storedLoginEmail = document.getElementById('loginEmail').value;
             try {
-                const res = await fetch('/api/auth/login', {
+                const data = await safeFetch('/api/auth/login', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: storedLoginEmail, password: document.getElementById('loginPassword').value })
                 });
-                const data = await res.json();
-                if (res.ok) {
-                    showToast(data.message, 'success');
-                    viewLogin.classList.add('hidden'); 
-                    viewLoginOtp.classList.remove('hidden'); // Show OTP screen
-                } else throw new Error(data.detail);
+                showToast(data.message, 'success');
+                viewLogin.classList.add('hidden'); 
+                viewLoginOtp.classList.remove('hidden');
             } catch (err) { showToast(err.message || 'Login failed', 'error'); }
         });
 
@@ -550,17 +564,14 @@
         document.getElementById('loginOtpForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             try {
-                const res = await fetch('/api/auth/verify-login-otp', {
+                const data = await safeFetch('/api/auth/verify-login-otp', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: storedLoginEmail, otp: document.getElementById('loginVerifyOtpCode').value })
                 });
-                const data = await res.json();
-                if (res.ok) {
-                    localStorage.setItem('user_id', data.user_id);
-                    localStorage.setItem('user_email', storedLoginEmail);
-                    showToast('Bear now remembers you forever! 🐻✨', 'success');
-                    setTimeout(() => { window.location.href = '/app'; }, 1000);
-                } else throw new Error(data.detail);
+                localStorage.setItem('user_id', data.user_id);
+                localStorage.setItem('user_email', storedLoginEmail);
+                showToast('Bear now remembers you forever! 🐻✨', 'success');
+                setTimeout(() => { window.location.href = '/app'; }, 1000);
             } catch (err) { showToast(err.message || 'OTP verification failed', 'error'); }
         });
 
@@ -569,7 +580,7 @@
             e.preventDefault();
             storedRegEmail = document.getElementById('regEmail').value;
             try {
-                const res = await fetch('/api/auth/register', {
+                const data = await safeFetch('/api/auth/register', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         name: document.getElementById('regName').value,
@@ -579,12 +590,9 @@
                         password: document.getElementById('regPassword').value
                     })
                 });
-                const data = await res.json();
-                if (res.ok) {
-                    showToast(data.message, 'success');
-                    viewRegister.classList.add('hidden'); 
-                    viewRegOtp.classList.remove('hidden'); // Show OTP screen
-                } else throw new Error(data.detail);
+                showToast(data.message, 'success');
+                viewRegister.classList.add('hidden'); 
+                viewRegOtp.classList.remove('hidden');
             } catch (err) { showToast(err.message, 'error'); }
         });
 
@@ -592,15 +600,12 @@
         document.getElementById('registerOtpForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             try {
-                const res = await fetch('/api/auth/verify-register-otp', {
+                const data = await safeFetch('/api/auth/verify-register-otp', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: storedRegEmail, otp: document.getElementById('regVerifyOtpCode').value })
                 });
-                const data = await res.json();
-                if (res.ok) {
-                    showToast(data.message, 'success');
-                    setTimeout(() => { viewRegOtp.classList.add('hidden'); viewLogin.classList.remove('hidden'); }, 1500);
-                } else throw new Error(data.detail);
+                showToast(data.message, 'success');
+                setTimeout(() => { viewRegOtp.classList.add('hidden'); viewLogin.classList.remove('hidden'); }, 1500);
             } catch (err) { showToast(err.message, 'error'); }
         });
 
@@ -610,15 +615,12 @@
             e.preventDefault();
             storedResetEmail = document.getElementById('resetEmail').value;
             try {
-                const res = await fetch('/api/auth/request-otp', {
+                const data = await safeFetch('/api/auth/request-otp', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: storedResetEmail })
                 });
-                const data = await res.json();
-                if (res.ok) {
-                    showToast(data.message, 'success');
-                    viewOtpReq.classList.add('hidden'); viewOtpVer.classList.remove('hidden');
-                } else throw new Error(data.detail);
+                showToast(data.message, 'success');
+                viewOtpReq.classList.add('hidden'); viewOtpVer.classList.remove('hidden');
             } catch (err) { showToast(err.message, 'error'); }
         });
 
@@ -626,15 +628,12 @@
         document.getElementById('otpVerifyForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             try {
-                const res = await fetch('/api/auth/reset-password', {
+                const data = await safeFetch('/api/auth/reset-password', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: storedResetEmail, otp: document.getElementById('verifyOtpCode').value, new_password: document.getElementById('verifyNewPassword').value })
                 });
-                const data = await res.json();
-                if (res.ok) {
-                    showToast(data.message, 'success');
-                    setTimeout(() => { viewOtpVer.classList.add('hidden'); viewLogin.classList.remove('hidden'); }, 1500);
-                } else throw new Error(data.detail);
+                showToast(data.message, 'success');
+                setTimeout(() => { viewOtpVer.classList.add('hidden'); viewLogin.classList.remove('hidden'); }, 1500);
             } catch (err) { showToast(err.message, 'error'); }
         });
 
