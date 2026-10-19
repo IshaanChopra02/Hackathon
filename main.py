@@ -156,7 +156,7 @@ def serve_login():
 @app.get("/app", response_class=HTMLResponse)
 def serve_dashboard():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    index_path = os.path.join(base_dir, "index.html")
+    index_path = os.path.join(base_dir, "index2.html")
     try:
         with open(index_path, "r", encoding="utf-8") as f:
             return f.read()
